@@ -1,0 +1,62 @@
+#!/usr/bin/env node
+
+var fs = require('fs');
+var path = require('path');
+var request = require('request');
+
+var downloadFile = function (fileInfo, dir) {
+    var file = path.join(dir, fileInfo.name);
+    console.log('开始下载文件' + file + '，大小：' + (fileInfo.size / 1000).toFixed(2) + 'KB');
+    request({
+        url: fileInfo.download_url,
+        headers: {
+            'User-Agent': 'gdown'
+        }
+    }, function () {
+        console.log(file + '下载完成');
+    }).pipe(fs.createWriteStream(file));
+};
+
+var getFileList = function (url, dir) {
+    fs.mkdirSync(dir);
+    console.log('开始获取github目录' + dir + '信息');
+    request({
+        url: url,
+        headers: {
+            'User-Agent': 'gdown'
+        },
+        json: true
+    }, function (error, response, body) {
+        if (body.message || !body.length) {
+            console.log('不是有效的github项目url或项目为空');
+        } else {
+            body.forEach(function (item) {
+                if (item.type === 'file') {
+                    downloadFile(item, dir);
+                } else if (item.type === 'dir') {
+                    getFileList(item.url, path.join(dir, item.name));
+                }
+            });
+        }
+    });
+};
+
+var GITHUB_REPOS_API_BASE_URL = 'https://api.github.com/repos/';
+var paths = process.argv.slice(2);
+
+paths.forEach(function (path) {
+    path = path.split('/');
+    if (path.length < 2) {
+        console.log(path.join('/') + '不是有效的github项目url');
+    } else {
+        var newDir = path[path.length - 1];
+        try {
+            fs.statSync(newDir);
+            console.log('文件或目录' + newDir + '已经存在');
+        } catch (e) {
+            path.splice(2, 0, 'contents');
+            path = path.join('/');
+            getFileList(GITHUB_REPOS_API_BASE_URL + path, newDir);
+        }
+    }
+});

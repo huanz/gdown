@@ -1,0 +1,32 @@
+{
+  "name": "gdown",
+  "version": "1.0.0",
+  "description": "a github repo download tool which support sub dir",
+  "main": "index.js",
+  "bin": {
+    "gdown": "./bin/gdown"
+  },
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/huanz/github-download.git"
+  },
+  "keywords": [
+    "git",
+    "github",
+    "repository",
+    "download",
+    "sub-dir"
+  ],
+  "author": "bukas",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/huanz/github-download/issues"
+  },
+  "homepage": "https://github.com/huanz/github-download#readme",
+  "dependencies": {
+    "request": "^2.61.0"
+  }
+}
