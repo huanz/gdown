@@ -1,6 +1,6 @@
 {
   "name": "gdown",
-  "version": "1.0.3",
+  "version": "1.0.4",
   "description": "a github repo download tool which support sub dir",
   "main": "index.js",
   "bin": {

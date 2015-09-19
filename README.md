@@ -17,4 +17,3 @@ github项目下载工具，支持多项目单文件下载以及多级目录下�
 
 	// or dirs and files
 	$ gdown huanz/gulp-devserver/lib huanz/seajs-cache huanz/gdown/bin/gdown huanz/urlParse/urlparse.js
-
