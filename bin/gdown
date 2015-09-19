@@ -29,7 +29,7 @@ var getFileList = function (url, dir) {
         if (body.message) {
             console.log('\x1b[31mFATAL\x1b[0m 不是有效的github项目url');
         } else if (body.type && body.type === 'file') {
-            downloadFile(item);
+            downloadFile(body);
         } else {
             fs.mkdirSync(dir);
             body.forEach(function (item) {
