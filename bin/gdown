@@ -5,21 +5,20 @@ var path = require('path');
 var request = require('request');
 
 var downloadFile = function (fileInfo, dir) {
-    var file = path.join(dir, fileInfo.name);
-    console.log('开始下载文件' + file + '，大小：' + (fileInfo.size / 1000).toFixed(2) + 'KB');
+    var file = path.join(dir || __dirname, fileInfo.name);
+    console.log('\x1b[34mINFO\x1b[0m 开始下载文件' + file + '，大小：' + (fileInfo.size / 1000).toFixed(2) + 'KB');
     request({
         url: fileInfo.download_url,
         headers: {
             'User-Agent': 'gdown'
         }
     }, function () {
-        console.log(file + '下载完成');
+        console.log('\x1b[34mINFO\x1b[0m \x1b[35m' + file + '\x1b[0m下载完成');
     }).pipe(fs.createWriteStream(file));
 };
 
 var getFileList = function (url, dir) {
-    fs.mkdirSync(dir);
-    console.log('开始获取github目录' + dir + '信息');
+    console.log('\x1b[34mINFO\x1b[0m 开始获取github \x1b[35m' + dir + '\x1b[0m 信息');
     request({
         url: url,
         headers: {
@@ -27,9 +26,12 @@ var getFileList = function (url, dir) {
         },
         json: true
     }, function (error, response, body) {
-        if (body.message || !body.length) {
-            console.log('不是有效的github项目url或项目为空');
+        if (body.message) {
+            console.log('\x1b[31mFATAL\x1b[0m 不是有效的github项目url');
+        } else if (body.type && body.type === 'file') {
+            downloadFile(item);
         } else {
+            fs.mkdirSync(dir);
             body.forEach(function (item) {
                 if (item.type === 'file') {
                     downloadFile(item, dir);
@@ -47,12 +49,12 @@ var paths = process.argv.slice(2);
 paths.forEach(function (path) {
     path = path.split('/');
     if (path.length < 2) {
-        console.log(path.join('/') + '不是有效的github项目url');
+        console.log('\x1b[31mFATAL\x1b[0m ' + path.join('/') + '不是有效的github项目url');
     } else {
         var newDir = path[path.length - 1];
         try {
             fs.statSync(newDir);
-            console.log('文件或目录' + newDir + '已经存在');
+            console.log('\x1b[31mFATAL\x1b[0m 文件或目录' + newDir + '已经存在');
         } catch (e) {
             path.splice(2, 0, 'contents');
             path = path.join('/');
