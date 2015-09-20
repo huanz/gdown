@@ -5,7 +5,7 @@ var path = require('path');
 var request = require('request');
 
 var downloadFile = function (fileInfo, dir) {
-    var file = path.join(dir || __dirname, fileInfo.name);
+    var file = path.join(dir || process.cwd(), fileInfo.name);
     console.log('\x1b[34mINFO\x1b[0m 开始下载文件' + file + '，大小：' + (fileInfo.size / 1000).toFixed(2) + 'KB');
     request({
         url: fileInfo.download_url,
