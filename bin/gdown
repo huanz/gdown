@@ -3,31 +3,71 @@
 var fs = require('fs');
 var path = require('path');
 var request = require('request');
+var authParams = 'client_id=6a7a2bb2eafec3c4537f&client_secret=42cadd66efa29d038ed1535ecd11e0e0ad30cca5';
+var fileCount = 0;
+var fileError = [];
+var userName = '';
+
+var authUrl = function (url) {
+    return url + (url.indexOf('?') > -1 ? '&' : '?') + authParams;
+};
+
+var finishInfo = function () {
+    if (!fileCount) {
+        console.log('\x1b[32m下载完成\x1b[0m');
+        if (fileError.length) {
+            console.log('出错文件：\x1b[31m' + (fileError.length ? fileError.join(' ') : 0) + '\x1b[0m 你可以重新下载这些文件');
+        }
+    }
+};
 
 var downloadFile = function (fileInfo, dir) {
     var file = path.join(dir || process.cwd(), fileInfo.name);
+    fileCount++;
     console.log('\x1b[34mINFO\x1b[0m 开始下载文件' + file + '，大小：' + (fileInfo.size / 1000).toFixed(2) + 'KB');
     request({
-        url: fileInfo.download_url,
+        url: authUrl(fileInfo.download_url),
         headers: {
             'User-Agent': 'gdown'
         }
-    }, function () {
-        console.log('\x1b[34mINFO\x1b[0m \x1b[35m' + file + '\x1b[0m下载完成');
+    }, function (error) {
+        fileCount--;
+        if (error) {
+            fileError.push(path.join(userName, file));
+            console.log('\x1b[31mFATAL\x1b[0m 下载失败，文件名：' + file);
+        } else {
+            console.log('\x1b[34mINFO\x1b[0m \x1b[35m' + file + '\x1b[0m下载完成');
+        }
+        finishInfo();
     }).pipe(fs.createWriteStream(file));
 };
 
 var getFileList = function (url, dir) {
+    fileCount++;
     console.log('\x1b[34mINFO\x1b[0m 开始获取github \x1b[35m' + dir + '\x1b[0m 信息');
     request({
-        url: url,
+        url: authUrl(url),
         headers: {
             'User-Agent': 'gdown'
         },
         json: true
     }, function (error, response, body) {
+        fileCount--;
+        if (error) {
+            fileError.push(path.join(userName, dir));
+            console.log('\x1b[31mFATAL\x1b[0m 下载失败，目录名：' + dir);
+            return;
+        }
         if (body.message) {
-            console.log('\x1b[31mFATAL\x1b[0m 不是有效的github项目url');
+            if (/API rate limit/.test(body.message)) {
+                fileError.push(path.join(userName, dir));
+                console.log('\x1b[31mFATAL\x1b[0m 访问频率超出github限制，失败目录：' + dir);
+            } else if (/Not Found/.test(body.message)) {
+                console.log('\x1b[31mFATAL\x1b[0m 目录' + dir + '无效');
+            } else {
+                fileError.push(path.join(userName, dir));
+                console.log('\x1b[31mFATAL\x1b[0m 未知错误，出错目录：' + dir);
+            }
         } else if (body.type && body.type === 'file') {
             downloadFile(body);
         } else {
@@ -40,6 +80,7 @@ var getFileList = function (url, dir) {
                 }
             });
         }
+        finishInfo();
     });
 };
 
@@ -48,7 +89,7 @@ var paths = process.argv.slice(2);
 
 var logStr = [
 'version ' + require('../package.json').version,
-'___________________\x1b[31m/\\\\\\\x1b[0m________________________________________________________',  
+'___________________\x1b[31m/\\\\\\\x1b[0m________________________________________________________',
 '___________________\x1b[31m\\/\\\\\\\x1b[0m_______________________________________________________',
 '__\x1b[31m/\\\\\\\\\\\\\\\\\x1b[0m_________\x1b[31m\\/\\\\\\\x1b[0m______________________________________________________',
 '__\x1b[31m/\\\\\\////\\\\\\\x1b[0m________\x1b[31m\\/\\\\\\\x1b[0m______\x1b[31m/\\\\\\\\\\\x1b[0m_____\x1b[31m/\\\\\x1b[0m____\x1b[31m/\\\\\x1b[0m___\x1b[31m/\\\\\x1b[0m__\x1b[31m/\\\\/\\\\\\\\\\\\\x1b[0m________',
@@ -66,6 +107,7 @@ paths.forEach(function (path) {
     if (path.length < 2) {
         console.log('\x1b[31mFATAL\x1b[0m ' + path.join('/') + '不是有效的github项目url');
     } else {
+        userName = path[0];
         var newDir = path[path.length - 1];
         try {
             fs.statSync(newDir);
