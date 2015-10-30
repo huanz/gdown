@@ -6,7 +6,6 @@ var request = require('request');
 var authParams = 'client_id=6a7a2bb2eafec3c4537f&client_secret=42cadd66efa29d038ed1535ecd11e0e0ad30cca5';
 var fileCount = 0;
 var fileError = [];
-var userName = '';
 
 var authUrl = function (url) {
     return url + (url.indexOf('?') > -1 ? '&' : '?') + authParams;
@@ -21,8 +20,7 @@ var finishInfo = function () {
     }
 };
 
-var downloadFile = function (fileInfo, dir) {
-    var file = path.join(dir || process.cwd(), fileInfo.name);
+var downloadFile = function (fileInfo, file, prefix) {
     fileCount++;
     console.log('\x1b[34mINFO\x1b[0m 开始下载文件' + file + '，大小：' + (fileInfo.size / 1000).toFixed(2) + 'KB');
     request({
@@ -33,7 +31,7 @@ var downloadFile = function (fileInfo, dir) {
     }, function (error) {
         fileCount--;
         if (error) {
-            fileError.push(path.join(userName, file));
+            fileError.push(path.join(prefix, file));
             console.log('\x1b[31mFATAL\x1b[0m 下载失败，文件名：' + file);
         } else {
             console.log('\x1b[34mINFO\x1b[0m \x1b[35m' + file + '\x1b[0m下载完成');
@@ -42,7 +40,7 @@ var downloadFile = function (fileInfo, dir) {
     }).pipe(fs.createWriteStream(file));
 };
 
-var getFileList = function (url, dir) {
+var getFileList = function (url, dir, prefix) {
     fileCount++;
     console.log('\x1b[34mINFO\x1b[0m 开始获取github \x1b[35m' + dir + '\x1b[0m 信息');
     request({
@@ -54,31 +52,35 @@ var getFileList = function (url, dir) {
     }, function (error, response, body) {
         fileCount--;
         if (error) {
-            fileError.push(path.join(userName, dir));
-            console.log('\x1b[31mFATAL\x1b[0m 下载失败，目录名：' + dir);
-            return;
-        }
-        if (body.message) {
-            if (/API rate limit/.test(body.message)) {
-                fileError.push(path.join(userName, dir));
-                console.log('\x1b[31mFATAL\x1b[0m 访问频率超出github限制，失败目录：' + dir);
-            } else if (/Not Found/.test(body.message)) {
-                console.log('\x1b[31mFATAL\x1b[0m 目录' + dir + '无效');
-            } else {
-                fileError.push(path.join(userName, dir));
-                console.log('\x1b[31mFATAL\x1b[0m 未知错误，出错目录：' + dir);
-            }
-        } else if (body.type && body.type === 'file') {
-            downloadFile(body);
+            fileError.push(path.join(prefix, dir));
+            console.log('\x1b[31mFATAL\x1b[0m 下载失败，名称：' + dir);
         } else {
-            fs.mkdirSync(dir);
-            body.forEach(function (item) {
-                if (item.type === 'file') {
-                    downloadFile(item, dir);
-                } else if (item.type === 'dir') {
-                    getFileList(item.url, path.join(dir, item.name));
+            if (body.message) {
+                if (/API rate limit/.test(body.message)) {
+                    fileError.push(path.join(prefix, dir));
+                    console.log('\x1b[31mFATAL\x1b[0m 访问频率超出github限制，失败目录：' + dir);
+                } else if (/Not Found/.test(body.message)) {
+                    console.log('\x1b[31mFATAL\x1b[0m 目录' + dir + '无效');
+                } else {
+                    fileError.push(path.join(prefix, dir));
+                    console.log('\x1b[31mFATAL\x1b[0m 未知错误，出错目录：' + dir);
                 }
-            });
+            } else if (body.type && body.type === 'file') {
+                downloadFile(body, dir, prefix);
+            } else {
+                try {
+                    fs.mkdirSync(dir);
+                } catch (e) {
+
+                }
+                body.forEach(function (item) {
+                    if (item.type === 'file') {
+                        downloadFile(item, path.join(dir, item.name), prefix);
+                    } else if (item.type === 'dir') {
+                        getFileList(item.url, path.join(dir, item.name), prefix);
+                    }
+                });
+            }
         }
         finishInfo();
     });
@@ -102,20 +104,22 @@ var logStr = [
 
 console.log(logStr);
 
-paths.forEach(function (path) {
-    path = path.split('/');
-    if (path.length < 2) {
-        console.log('\x1b[31mFATAL\x1b[0m ' + path.join('/') + '不是有效的github项目url');
+paths.forEach(function (p) {
+    p = path.normalize(p.replace(/^\/*/, '')).split('/');
+    if (p.length < 2) {
+        console.log('\x1b[31mFATAL\x1b[0m ' + p.join('/') + '不是有效的github项目url');
     } else {
-        userName = path[0];
-        var newDir = path[path.length - 1];
+        var newDir = '';
+        var prefix = p[0];
         try {
-            fs.statSync(newDir);
-            console.log('\x1b[31mFATAL\x1b[0m 文件或目录' + newDir + '已经存在');
+            fs.statSync(p[1]);
+            newDir = path.join.apply(path, p.slice(1));
         } catch (e) {
-            path.splice(2, 0, 'contents');
-            path = path.join('/');
-            getFileList(GITHUB_REPOS_API_BASE_URL + path, newDir);
+            newDir = p[p.length - 1];
+            prefix = path.join.apply(path, p.slice(0, -1));
         }
+        p.splice(2, 0, 'contents');
+        p = p.join('/');
+        getFileList(GITHUB_REPOS_API_BASE_URL + p, newDir, prefix);
     }
 });
